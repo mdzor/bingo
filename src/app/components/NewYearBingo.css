@@ -1,0 +1,51 @@
+@keyframes shuffle-card {
+    0% {
+      transform-style: preserve-3d;
+      transform: scale(0.9) rotateY(0deg);
+    }
+    50% {
+      transform-style: preserve-3d;
+      transform: scale(1.1) rotateY(180deg);
+    }
+    100% {
+      transform-style: preserve-3d;
+      transform: scale(1) rotateY(360deg);
+    }
+  }
+
+  .cell-flip {
+    height: 100%;
+}
+  
+  .aspect-square {
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    position: relative;
+  }
+  
+  [data-shuffling='true'] .aspect-square {
+    animation: shuffle-card 0.6s ease-in-out;
+  }
+  
+  .aspect-square::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: inherit;
+    transform: rotateY(180deg);
+    backface-visibility: hidden;
+  }
+  
+  .hover\:scale-102:hover {
+    transform: scale(1.02);
+  }
+
+.rose { background-color: #F5818B !important; }
+.jaune { background-color: #F9D025 !important; }
+.vert { background-color: #3EA345 !important; }
+.bleu { background-color: #326FC9 !important; }
+.rouge { background-color: #E04025 !important; }

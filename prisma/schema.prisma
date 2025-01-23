@@ -1,0 +1,8 @@
+model Board {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String
+  passcode  String
+  goals     Json
+  createdAt DateTime @default(now())
+} 
