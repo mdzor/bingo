@@ -8,6 +8,7 @@ export const THEMES = {
       emoji: '🍀',
       textColor: 'text-black',
       frameFill: '#F9D025',
+      isDark: false,
     },
     WICKED: {
       name: 'Wicked',
@@ -18,6 +19,7 @@ export const THEMES = {
       emoji: '🍀',
       textColor: 'text-black',
       frameFill: '#3EA345',
+      isDark: false,
     },
     SKYBLUE: {  
       name: 'Ocean',
@@ -28,6 +30,7 @@ export const THEMES = {
       emoji: '🦋',
       textColor: 'text-black',
       frameFill: '#326FC9',
+      isDark: false,
     },
     DARK: {
       name: 'Night',
@@ -38,7 +41,7 @@ export const THEMES = {
       emoji: '🌚',
       textColor: 'text-white', 
       frameFill: '#000000',
-      isDark: true, 
+      isDark: true,
     },
     SUNSET: {
       name: 'Sunset',
@@ -50,5 +53,6 @@ export const THEMES = {
       borderClass: 'border-black border',
       textColor: 'text-black',
       frameFill: '#E04025',
+      isDark: false,
     },
   };

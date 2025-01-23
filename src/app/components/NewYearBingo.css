@@ -49,3 +49,29 @@
 .vert { background-color: #3EA345 !important; }
 .bleu { background-color: #326FC9 !important; }
 .rouge { background-color: #E04025 !important; }
+
+.floating-message {
+  animation: floatUp 2s ease-out forwards;
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 16px 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -200px);
+  }
+}

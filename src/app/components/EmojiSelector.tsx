@@ -7,7 +7,12 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-export const EmojiSelector = ({ selectedEmoji, onEmojiSelect }) => {
+interface EmojiSelectorProps {
+  selectedEmoji: string | null;
+  onEmojiSelect: (emoji: string) => void;
+}
+
+export const EmojiSelector = ({ selectedEmoji, onEmojiSelect }: EmojiSelectorProps) => {
     const [showPicker, setShowPicker] = useState(false);
   
     return (

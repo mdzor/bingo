@@ -1,17 +1,37 @@
 import { Card } from "@/components/ui/card";
 import { CELL_SHAPES } from '../constants/shapes';
 
-interface BingoCellProps {
-  cell: {
-    goal: string;
-    icon: string;
-  };
-  onEdit: () => void;
-  cellRef: (element: HTMLDivElement) => void;
-  theme: any; // You might want to type this properly
-  shapeId: string;
-  colorClass?: string;
+interface GridCell {
+  goal: string;
+  icon: string;
 }
+
+type Theme = {
+  name: string;
+  background: string;
+  cardBg: string;
+  cardHoverBg: string;
+  overlayBg: string;
+  emoji: string;
+  textColor: string;
+  frameFill: string;
+  isDark?: boolean;
+  borderClass?: string;
+};
+
+type BingoCellProps = {
+  cell: GridCell;
+  onEdit: () => void;
+  onSave: () => void;
+  editedGoal: string;
+  onGoalChange: (value: string) => void;
+  selectedIcon: string;
+  onIconSelect: (value: string) => void;
+  cellRef: (el: HTMLDivElement) => void;
+  theme: Theme;
+  shapeId: string;
+  colorClass: string;
+};
 
 const BingoCell = ({ 
   cell, 

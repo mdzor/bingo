@@ -11,10 +11,11 @@ import { THEMES }from '../constants/themes';
 import './NewYearBingo.css';
 import AddGoalDialog from './AddGoalDialog';
 import { RotateCcw } from "lucide-react";
+import { bingoGoals } from '../constants/inspirations';
 
 const GRID_SIZE = 5;
 const TOTAL_GOALS = GRID_SIZE * GRID_SIZE;
-const INITIAL_GRID = Array(TOTAL_GOALS).fill().map(() => ({ goal: '', icon: '' }));
+const INITIAL_GRID = Array(TOTAL_GOALS).fill(null).map(() => ({ goal: '', icon: '' }));
 
 // rows
 const SHAPE_PATTERN = [
@@ -45,29 +46,53 @@ type SavedBoard = {
   createdAt: string;
 };
 
+type CellShape = {
+  id: string;
+  svg: string;
+};
+
+type GridCell = {
+  goal: string;
+  icon: string;
+};
+
+type Theme = {
+  name: string;
+  background: string;
+  cardBg: string;
+  cardHoverBg: string;
+  overlayBg: string;
+  emoji: string;
+  textColor: string;
+  frameFill: string;
+  isDark: boolean;
+  borderClass?: string;
+};
+
+const CELL_SHAPES: CellShape[] = [
+  { id: 'circle', svg: '...' },
+  { id: 'quatrefoil', svg: '...' },
+];
+
 const NewYearBingo = () => {
   const [grid, setGrid] = useState(INITIAL_GRID);
-  const [editingCell, setEditingCell] = useState(null);
+  const [editingCell, setEditingCell] = useState<number | null>(null);
   const [editedGoal, setEditedGoal] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('');
-  const [goalsLeft, setGoalsLeft] = useState(TOTAL_GOALS);
-  const cellRefs = React.useRef([]);
+  const cellRefs = React.useRef<HTMLDivElement[]>([]);
   const [isShuffling, setIsShuffling] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState(THEMES.WICKED);
-  const [isViewMode, setIsViewMode] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES.WICKED);
+  const [isViewMode] = useState(false);
   const [savedBoard, setSavedBoard] = useState<SavedBoard | null>(null);
   const [cellShapes, setCellShapes] = useState<string[]>([]);
   const [completedGoals, setCompletedGoals] = useState(0);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [inspiration, setInspiration] = useState<string | null>(null);
+  const [isInspiring, setIsInspiring] = useState(false);
 
   useEffect(() => {
     const filledGoals = grid.filter(cell => cell.goal !== '').length;
-    setGoalsLeft(TOTAL_GOALS - filledGoals);
-  }, [grid]);
-
-  useEffect(() => {
-    const completed = grid.filter(g => g.goal !== '').length;
-    setCompletedGoals(completed);
+    setCompletedGoals(filledGoals);
   }, [grid]);
 
   const resetBoard = () => {
@@ -77,7 +102,7 @@ const NewYearBingo = () => {
   };
 
   const handleSave = () => {
-    if (!editedGoal.trim()) return;
+    if (!editedGoal.trim() || editingCell === null) return;
 
     const newGrid = [...grid];
     newGrid[editingCell] = {
@@ -129,12 +154,13 @@ const NewYearBingo = () => {
       // Update state
       setSavedBoard({ ...savedBoard, goals: newGoals });
       toast.success(newGoals[index].completed ? 'Goal completed! 🎉' : 'Goal uncompleted');
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to update goal status:', err);
       toast.error('Failed to update goal status');
     }
   };
 
-  const handleEdit = (index) => {
+  const handleEdit = (index: number) => {
     setEditingCell(index);
     setEditedGoal(grid[index].goal || '');
     setSelectedIcon(grid[index].icon || '');
@@ -142,10 +168,19 @@ const NewYearBingo = () => {
   };
 
   const handleInspire = () => {
-
-    console.log('inspire');
+    if (isInspiring) return;
     
-    var defaults = {
+    setIsInspiring(true);
+    const randomGoal = bingoGoals[Math.floor(Math.random() * bingoGoals.length)];
+    setInspiration(randomGoal.text);
+
+    setTimeout(() => {
+      setInspiration(null);
+      setIsInspiring(false);
+    }, 2000);
+    
+    // Existing confetti code
+    const defaults = {
       spread: 360,
       ticks: 50,
       gravity: 0.4,
@@ -160,8 +195,7 @@ const NewYearBingo = () => {
       shapes: ['star'],
       origin: { y: 0.3, x: 0.71 }
     });
-
-  }
+  };
 
   const handleShuffle = () => {
     setIsShuffling(true);
@@ -207,20 +241,21 @@ const NewYearBingo = () => {
     }
   }, []);
 
-  const renderCell = (cell, index) => {
+  const renderCell = (cell: GridCell, index: number) => {
     if (isViewMode && savedBoard) {
       const isCompleted = savedBoard.goals[index].completed;
       return (
         <div className="aspect-square w-full relative">
-          {/* Shape overlay */}
           <div 
             className="absolute inset-1 pointer-events-none" 
-            dangerouslySetInnerHTML={{ __html: CELL_SHAPES.find(s => s.id === cellShapes[index])?.svg || '' }} 
+            dangerouslySetInnerHTML={{ 
+              __html: CELL_SHAPES.find((s: CellShape) => s.id === cellShapes[index])?.svg || '' 
+            }} 
           />
           
           <Card 
             className={`h-full cursor-pointer transition-all ${
-              theme.cardBg
+              currentTheme.cardBg
             } ${
               isCompleted ? 'ring-4 ring-green-500 opacity-75' : ''
             } hover:scale-102 rounded-none`}
@@ -244,14 +279,13 @@ const NewYearBingo = () => {
     return (
       <BingoCell
         cell={cell}
-        isEditing={editingCell === index}
         onEdit={() => handleEdit(index)}
         onSave={handleSave}
         editedGoal={editedGoal}
         onGoalChange={setEditedGoal}
         selectedIcon={selectedIcon}
         onIconSelect={setSelectedIcon}
-        cellRef={el => cellRefs.current[index] = el}
+        cellRef={(el: HTMLDivElement) => cellRefs.current[index] = el}
         theme={currentTheme}
         shapeId={cellShapes[index]}
         colorClass={currentTheme.name === 'Original' ? ORIGINAL_COLORS[index] : ''}
@@ -259,11 +293,9 @@ const NewYearBingo = () => {
     );
   };
 
-  // When setting theme, also update localStorage
-  const handleThemeChange = (newTheme) => {
+  const handleThemeChange = (newTheme: Theme) => {
     setCurrentTheme(newTheme);
     
-    // Update theme in localStorage while preserving existing goals
     const savedData = localStorage.getItem('bingoBoard');
     if (savedData) {
       const parsed = JSON.parse(savedData);
@@ -276,6 +308,15 @@ const NewYearBingo = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#B3D9F6] to-[#61BBFF] p-8 relative overflow-hidden">
+      {inspiration && (
+        <div 
+          className="floating-message fixed left-1/2 ml-[620px] top-[20%] z-50 text-xl font-afacad"
+          style={{ maxWidth: '80vw' }}
+        >
+          {inspiration}
+        </div>
+      )}
+
       <div className="w-[35%] mx-auto">
         <div className="fixed left-1/2 ml-[410px] bottom-1/4 mb-[-372px] -translate-y-1/2 flex flex-col gap-3 z-10">
           {Object.values(THEMES).map((theme) => (
@@ -342,7 +383,10 @@ const NewYearBingo = () => {
 
         <button
           onClick={handleInspire}
-          className="fixed w-60 h-60 top-[20%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12"
+          disabled={isInspiring}
+          className={`fixed w-60 h-60 top-[20%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
+            isInspiring ? 'cursor-not-allowed' : ''
+          }`}
         >
           <Image 
             src="/inspire.svg" 
@@ -395,10 +439,14 @@ const NewYearBingo = () => {
         <div className="max-w-[936px] mx-auto relative h-full flex flex-col items-center">
           {/* Title Section */}
           <div className="mt-12 mb-4 text-center">
-            <img 
-              src="/bingo.gif"
+            <Image 
+              src={'/bingo.gif'}
               alt="New Year's Resolution Bingo" 
               className={`mx-auto w-[80%] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
+              width={800}
+              height={200}
+              priority
+              unoptimized={true}
             />
           </div>
 
@@ -426,7 +474,7 @@ const NewYearBingo = () => {
             2025
           </p>
           <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] mb-8 ${currentTheme.textColor}`}>
-            LET'S GO! GROW & WIN FULL HOUSE!
+            LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
           </p>
         </div>
 
