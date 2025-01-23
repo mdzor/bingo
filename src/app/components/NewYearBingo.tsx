@@ -89,11 +89,22 @@ const NewYearBingo = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [inspiration, setInspiration] = useState<string | null>(null);
   const [isInspiring, setIsInspiring] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const filledGoals = grid.filter(cell => cell.goal !== '').length;
     setCompletedGoals(filledGoals);
   }, [grid]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // Consider screens smaller than 1024px as mobile
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const resetBoard = () => {
     localStorage.removeItem('bingoBoard');
@@ -308,6 +319,17 @@ const NewYearBingo = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#B3D9F6] to-[#61BBFF] p-8 relative overflow-hidden">
+      {isMobile && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-lg p-6 max-w-md text-center">
+            <h2 className="text-2xl font-bold mb-4">Desktop View Recommended</h2>
+            <p className="text-gray-600">
+              This experience is optimized for desktop viewing. Please visit on a larger screen for the best experience.
+            </p>
+          </div>
+        </div>
+      )}
+      
       {inspiration && (
         <div 
           className="floating-message fixed left-1/2 ml-[620px] top-[20%] z-50 text-xl font-afacad"
@@ -451,14 +473,17 @@ const NewYearBingo = () => {
           </div>
 
           {/* Top text */}
-          <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
+          <p className={`font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
             TWENTY-FIVE INTENTIONS FOR FULL YEAR AHEAD!
           </p>
 
           {/* Grid */}
-          <div className="w-[85%] ml-[-30px]">
+          <div className=" ml-[-30px]">
             <div 
               className="grid grid-cols-5 gap-3 aspect-square w-full"
+              style={{ 
+                minWidth: '700px',  // Fixed width instead of min()
+              }}
               data-shuffling={isShuffling}
             >
               {grid.map((cell, index) => (
@@ -473,7 +498,7 @@ const NewYearBingo = () => {
           <p className={`font-['Poiret_One'] font-light tracking-[60px] text-[6rem] ml-[50px] mb-[-20px] ${currentTheme.textColor}`}>
             2025
           </p>
-          <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] mb-8 ${currentTheme.textColor}`}>
+          <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] whitespace-nowrap mb-8 ${currentTheme.textColor}`}>
             LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
           </p>
         </div>

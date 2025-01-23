@@ -27,7 +27,7 @@ An interactive bingo board for setting and tracking New Year's resolutions and g
 - [ ] Add Daubers to mark goals as done when the board is filled
 - [ ] Add Share Link feature
 - [ ] Add Ability to save into a link instead of LocalStorage
-- [ ] Fix UI when window resizing
-- [ ] Add notice @ mobile friendly when opened on mobile
+- [x] ~~Fix UI when window resizing~~
+- [x] ~~Add notice @ mobile friendly when opened on mobile~~
 - [x] ~~Add Themes~~
 
