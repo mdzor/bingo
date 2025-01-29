@@ -26,7 +26,6 @@ const SHAPE_PATTERN = [
   'wavy', 'star', 'circle', 'quatrefoil', 'fancy'
 ];
 
-
 const ORIGINAL_COLORS = [
   'rouge', 'vert', 'rose', 'jaune', 'bleu',
   'rose', 'jaune', 'vert', 'bleu', 'vert',
@@ -81,7 +80,7 @@ const NewYearBingo = () => {
   const [selectedIcon, setSelectedIcon] = useState('');
   const cellRefs = React.useRef<HTMLDivElement[]>([]);
   const [isShuffling, setIsShuffling] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES.WICKED);
+  const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES.ORIGINAL);
   const [isViewMode] = useState(false);
   const [savedBoard, setSavedBoard] = useState<SavedBoard | null>(null);
   const [cellShapes, setCellShapes] = useState<string[]>([]);
@@ -89,22 +88,11 @@ const NewYearBingo = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [inspiration, setInspiration] = useState<string | null>(null);
   const [isInspiring, setIsInspiring] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const filledGoals = grid.filter(cell => cell.goal !== '').length;
     setCompletedGoals(filledGoals);
   }, [grid]);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // Consider screens smaller than 1024px as mobile
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const resetBoard = () => {
     localStorage.removeItem('bingoBoard');
@@ -319,28 +307,18 @@ const NewYearBingo = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#B3D9F6] to-[#61BBFF] p-8 relative overflow-hidden">
-      {isMobile && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-lg p-6 max-w-md text-center">
-            <h2 className="text-2xl font-bold mb-4">Desktop View Recommended</h2>
-            <p className="text-gray-600">
-              This experience is optimized for desktop viewing. Please visit on a larger screen for the best experience.
-            </p>
-          </div>
-        </div>
-      )}
-      
       {inspiration && (
         <div 
-          className="floating-message fixed left-1/2 ml-[620px] top-[20%] z-50 text-xl font-afacad"
+          className="floating-message absolute left-1/2 ml-[620px] top-[20%] z-50 text-xl font-afacad"
           style={{ maxWidth: '80vw' }}
         >
           {inspiration}
         </div>
       )}
 
-      <div className="w-[35%] mx-auto">
-        <div className="fixed left-1/2 ml-[410px] bottom-1/4 mb-[-372px] -translate-y-1/2 flex flex-col gap-3 z-10">
+      <div className="w-[35%] mx-auto relative">
+        {/* Theme selection (now absolute) */}
+        <div className="absolute left-1/2 ml-[410px] bottom-1/4 mb-[-395px] -translate-y-1/2 flex flex-col gap-3 z-10">
           {Object.values(THEMES).map((theme) => (
             <Button
               key={theme.name}
@@ -390,9 +368,10 @@ const NewYearBingo = () => {
           ))}
         </div>
 
+        {/* Shuffle (absolute) */}
         <button
           onClick={handleShuffle}
-          className="fixed w-60 h-60 top-[20%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12"
+          className="absolute w-60 h-60 top-[15%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12"
         >
           <Image 
             src="/shuffle.svg" 
@@ -403,10 +382,11 @@ const NewYearBingo = () => {
           />
         </button>
 
+        {/* Inspire button (now absolute) */}
         <button
           onClick={handleInspire}
           disabled={isInspiring}
-          className={`fixed w-60 h-60 top-[20%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
+          className={`absolute w-60 h-60 top-[15%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
             isInspiring ? 'cursor-not-allowed' : ''
           }`}
         >
@@ -419,8 +399,9 @@ const NewYearBingo = () => {
           />
         </button>
 
+        {/* Completed Goals (absolute) */}
         <div
-          className="fixed w-60 h-60 top-[40%] right-1/2 mr-[550px] z-10 transition-transform hover:scale-105 flex flex-col items-center justify-center"
+          className="absolute w-60 h-60 top-[40%] right-1/2 mr-[550px] z-10 transition-transform hover:scale-105 flex flex-col items-center justify-center"
           style={{ 
             backgroundImage: 'url(/counter.svg)',
             backgroundSize: 'contain',
@@ -432,11 +413,11 @@ const NewYearBingo = () => {
             {completedGoals}/25
           </p>
           <p className="text-[1.2em]">COMPLETED</p>
-
         </div>
 
+        {/* Reset (absolute) */}
         {!isViewMode && (
-          <div className="fixed w-60 h-60 top-[60%] right-1/2 mr-[550px] z-10">
+          <div className="absolute w-60 h-60 top-[65%] right-1/2 mr-[550px] z-10">
             <Button
               onClick={resetBoard}
               variant="secondary"
@@ -447,25 +428,29 @@ const NewYearBingo = () => {
           </div>
         )}
 
-        {/* Background Frame */}
+        {/* Background Frame - Updated positioning */}
         <div 
-          className="fixed left-1/2 top-5 h-full -translate-x-1/2 pointer-events-none"
-          style={{ width: 'min(850px, 910px)' }}
+          className="absolute left-1/2 top-0 h-full -translate-x-1/2 pointer-events-none"
+          style={{ 
+            width: 'min(850px, 910px)',
+            position: 'absolute',
+            minHeight: '100%'
+          }}
           dangerouslySetInnerHTML={{ 
             __html: currentTheme.isDark 
               ? DARK_BACKGROUND 
               : BACKGROUND.replace('#E04025', currentTheme.frameFill || '#E04025')
           }}
         />
-        
+
         <div className="max-w-[936px] mx-auto relative h-full flex flex-col items-center">
           {/* Title Section */}
           <div className="mt-12 mb-4 text-center">
             <Image 
               src={'/bingo.gif'}
               alt="New Year's Resolution Bingo" 
-              className={`mx-auto w-[80%] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
-              width={800}
+              className={`min-w-[700px] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
+              width={700}
               height={200}
               priority
               unoptimized={true}
@@ -480,10 +465,7 @@ const NewYearBingo = () => {
           {/* Grid */}
           <div className=" ml-[-30px]">
             <div 
-              className="grid grid-cols-5 gap-3 aspect-square w-full"
-              style={{ 
-                minWidth: '700px',  // Fixed width instead of min()
-              }}
+              className="grid min-w-[750px] grid-cols-5 gap-3 aspect-square w-full"
               data-shuffling={isShuffling}
             >
               {grid.map((cell, index) => (
@@ -502,7 +484,6 @@ const NewYearBingo = () => {
             LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
           </p>
         </div>
-
       </div>
 
       <AddGoalDialog
