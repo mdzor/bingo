@@ -55,3 +55,11 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Force the same gradient and prevent bounce scrolling */
+html, body {
+  @apply h-full bg-gradient-to-b from-[#B3D9F6] to-[#61BBFF];
+  overscroll-behavior: none; /* prevents showing white area on overscroll */
+  margin: 0; /* remove default margins */
+  padding: 0; /* remove default padding */
+}
