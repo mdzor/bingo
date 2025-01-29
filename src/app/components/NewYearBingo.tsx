@@ -207,11 +207,19 @@ const NewYearBingo = () => {
   const [editingBoardName, setEditingBoardName] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<string | null>(null);
+  const [isDauberMode, setIsDauberMode] = useState(false);
+  const [taggedCells, setTaggedCells] = useState<boolean[]>(Array(TOTAL_GOALS).fill(false));
+  const [dauberPosition, setDauberPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    const filledGoals = grid.filter(cell => cell.goal !== '').length;
-    setCompletedGoals(filledGoals);
-  }, [grid]);
+    if (isLocked) {
+      const taggedCount = taggedCells.filter(Boolean).length;
+      setCompletedGoals(taggedCount);
+    } else {
+      const filledGoals = grid.filter(cell => cell.goal !== '').length;
+      setCompletedGoals(filledGoals);
+    }
+  }, [grid, isLocked, taggedCells]);
 
   const resetBoard = () => {
     localStorage.removeItem('bingoBoard');
@@ -319,7 +327,7 @@ const NewYearBingo = () => {
   };
 
   const handleInspire = () => {
-    if (isInspiring) return;
+    if (isInspiring || isLocked) return;
     
     setIsInspiring(true);
     const randomGoal = bingoGoals[Math.floor(Math.random() * bingoGoals.length)];
@@ -486,8 +494,9 @@ const NewYearBingo = () => {
       setGrid(board.goals);
       setIsLocked(board.isLocked);
       setCurrentBoardName(boardName);
+      // Load tagged cells if they exist, otherwise initialize with false
+      setTaggedCells(board.taggedCells || Array(TOTAL_GOALS).fill(false));
       
-      // Set theme
       const savedTheme = Object.values(THEMES).find(t => t.name === board.theme);
       if (savedTheme) {
         setCurrentTheme(savedTheme);
@@ -497,41 +506,35 @@ const NewYearBingo = () => {
     }
   };
 
-  const renderCell = (cell: GridCell, index: number) => {
-    if (isViewMode && savedBoard) {
-      const isCompleted = savedBoard.goals[index].completed;
-      return (
-        <div className="aspect-square w-full relative">
-          <div 
-            className="absolute inset-1 pointer-events-none" 
-            dangerouslySetInnerHTML={{ 
-              __html: CELL_SHAPES.find((s: CellShape) => s.id === cellShapes[index])?.svg || '' 
-            }} 
-          />
-          
-          <Card 
-            className={`h-full cursor-pointer transition-all ${
-              currentTheme.cardBg
-            } ${
-              isCompleted ? 'ring-4 ring-green-500 opacity-75' : ''
-            } hover:scale-102 rounded-none`}
-            onClick={() => handleGoalCompletion(index)}
-          >
-            {cell.goal ? (
-              <>
-                <div className="mb-2 relative z-10">
-                  <span className="text-4xl">{cell.icon}</span>
-                </div>
-                <p className="text-sm line-clamp-3 relative z-10">{cell.goal}</p>
-              </>
-            ) : (
-              <p className="text-gray-400 relative z-10">Click to add goal</p>
-            )}
-          </Card>
-        </div>
-      );
-    }
+  const handleCellTag = (index: number) => {
+    if (isLocked && isDauberMode) {
+      const newTaggedCells = [...taggedCells];
+      newTaggedCells[index] = !newTaggedCells[index];
+      setTaggedCells(newTaggedCells);
 
+      // Add confetti effect when tagging a cell
+      if (!taggedCells[index]) {  // Only trigger when marking, not unmarking
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.6 },
+        });
+      }
+
+      // Save to localStorage
+      const updatedBoards = { ...savedBoards };
+      if (currentBoardName) {
+        updatedBoards[currentBoardName] = {
+          ...updatedBoards[currentBoardName],
+          taggedCells: newTaggedCells
+        };
+        setSavedBoards(updatedBoards);
+        localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
+      }
+    }
+  };
+
+  const renderCell = (cell: GridCell, index: number) => {
     return (
       <BingoCell
         cell={cell}
@@ -546,6 +549,9 @@ const NewYearBingo = () => {
         shapeId={cellShapes[index]}
         colorClass={currentTheme.name === 'Full' ? ORIGINAL_COLORS[index] : ''}
         isLocked={isLocked}
+        isTagged={taggedCells[index]}
+        onTag={() => handleCellTag(index)}
+        isDauberMode={isDauberMode}
       />
     );
   };
@@ -578,6 +584,8 @@ const NewYearBingo = () => {
         setGrid(firstBoard.goals);
         setIsLocked(firstBoard.isLocked);
         setCurrentBoardName(firstBoardName);
+        // Load tagged cells for the first board
+        setTaggedCells(firstBoard.taggedCells || Array(TOTAL_GOALS).fill(false));
         
         // Set theme for the first board
         const savedTheme = Object.values(THEMES).find(t => t.name === firstBoard.theme);
@@ -619,10 +627,12 @@ const NewYearBingo = () => {
         theme: currentTheme.name,
         isLocked: false,
         name: newName,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        taggedCells: Array(TOTAL_GOALS).fill(false) // Initialize taggedCells for new boards
       };
       setCurrentBoardName(newName);
       setGrid(Array(TOTAL_GOALS).fill({ goal: '', icon: '' }));
+      setTaggedCells(Array(TOTAL_GOALS).fill(false));
     }
 
     setSavedBoards(updatedBoards);
@@ -746,6 +756,18 @@ const NewYearBingo = () => {
     </div>
   );
 
+  // Add mouse move handler
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDauberMode) {
+        setDauberPosition({ x: e.clientX, y: e.clientY });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isDauberMode]);
+
   return (
     <>
       <Toaster richColors position="top-center" />
@@ -815,7 +837,9 @@ const NewYearBingo = () => {
           <button
             onClick={handleShuffle}
             disabled={isLocked}
-            className="absolute w-60 h-60 top-[15%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12 disabled:cursor-not-allowed"
+            className={`absolute w-60 h-60 top-[15%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12 ${
+              isLocked ? 'cursor-not-allowed opacity-50' : ''
+            }`}
           >
             <Image 
               src="/shuffle.svg" 
@@ -829,9 +853,9 @@ const NewYearBingo = () => {
           {/* Inspire button (now absolute) */}
           <button
             onClick={handleInspire}
-            disabled={isInspiring}
+            disabled={isInspiring || isLocked}
             className={`absolute w-60 h-60 top-[15%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
-              isInspiring ? 'cursor-not-allowed' : ''
+              isInspiring || isLocked ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
             <Image 
@@ -856,7 +880,7 @@ const NewYearBingo = () => {
             <p className="font-['Poiret_One'] text-[3em] leading-tight text-center mt-[-20px]">
               {completedGoals}/25
             </p>
-            <p className="text-[1.2em]">FILLED</p>
+            <p className="text-[1.2em]">{isLocked ? 'COMPLETED' : 'FILLED'}</p>
           </div>
 
           {/* Reset and Share buttons (absolute) */}
@@ -879,7 +903,14 @@ const NewYearBingo = () => {
               <Button
                 onClick={resetBoard}
                 variant="secondary"
-                className="bg-[#326FC9] text-[1.1em] hover:bg-[#326FC9]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px]"
+                disabled={isLocked}
+                className={`
+                  bg-[#326FC9] text-[1.1em] 
+                  hover:bg-[#326FC9]/90 text-black 
+                  border-2 border-black font-afacad 
+                  h-[35px] w-[150px]
+                  ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
               >
                 <RotateCcw className="mr-2 h-4 w-4" /> Reset Board
               </Button>
@@ -985,6 +1016,49 @@ const NewYearBingo = () => {
           boardName={boardToDelete || ''}
           onConfirm={confirmDeleteBoard}
         />
+
+        {isLocked && (
+          <>
+            <div className="absolute w-[300px] top-[40%] left-1/2 ml-[470px] mt-[320px] z-10">
+              <Card className="p-4 bg-white/90 border-2 border-black">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-afacad text-xl">Dauber</h3>
+                  <Button
+                    onClick={() => setIsDauberMode(!isDauberMode)}
+                    variant={isDauberMode ? "secondary" : "ghost"}
+                    className={`p-2 ${isDauberMode ? 'bg-blue-200' : ''}`}
+                  >
+                    <Image
+                      src="/dauber.svg"
+                      alt="Dauber"
+                      width={100}
+                      height={100}
+                    />
+                  </Button>
+                </div>
+              </Card>
+            </div>
+
+            {isDauberMode && (
+              <div
+                className="fixed w-[100px] h-[100px] ml-[30px] mt-[60px] pointer-events-none z-50"
+                style={{
+                  left: `${dauberPosition.x - 25}px`,
+                  top: `${dauberPosition.y - 25}px`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <Image
+                  src="/dauber.svg"
+                  alt="Dauber"
+                  width={100}
+                  height={100}
+                  className="w-full h-full"
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
     </>
   );

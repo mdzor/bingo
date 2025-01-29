@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { CELL_SHAPES } from '../constants/shapes';
+import { useState } from 'react';
 
 interface GridCell {
   goal: string;
@@ -31,6 +32,10 @@ type BingoCellProps = {
   theme: Theme;
   shapeId: string;
   colorClass: string;
+  isLocked: boolean;
+  isTagged?: boolean;
+  onTag?: () => void;
+  isDauberMode?: boolean;
 };
 
 const BingoCell = ({ 
@@ -39,24 +44,47 @@ const BingoCell = ({
   cellRef, 
   theme, 
   shapeId,
-  colorClass
+  colorClass,
+  isLocked,
+  isTagged = false,
+  onTag,
+  isDauberMode = false
 }: BingoCellProps) => {
   const shape = CELL_SHAPES.find(s => s.id === shapeId);
   
+  const [isShaking, setIsShaking] = useState(false);
+  
+  const handleClick = () => {
+    if (isLocked && isDauberMode && onTag) {
+      handleTag();
+    } else if (!isLocked) {
+      onEdit();
+    }
+  };
+  
+  const handleTag = () => {
+    if (isDauberMode) {
+      setIsShaking(true);
+      onTag();
+      setTimeout(() => setIsShaking(false), 300);
+    }
+  };
+  
   return (
     <div className="aspect-square w-full relative" ref={cellRef}>
-      <div className={`cell-flip`}>
+      <div className={`cell-flip ${isShaking ? 'cell-shake' : ''}`}>
         <Card 
           className={`h-full cursor-pointer transition-transform flex flex-col items-center justify-center text-center 
             ${colorClass || theme.cardBg} 
             ${theme.cardHoverBg} 
             ${theme.borderClass || 'border-white/10 border'} 
+            ${isDauberMode ? 'cursor-crosshair' : ''}
             p-4 rounded-none`}
-          onClick={onEdit}
+          onClick={handleClick}
         >
           {/* Shape overlay */}
           <div 
-            className="absolute inset-1 pointer-events-none" 
+            className={`absolute inset-1 pointer-events-none ${isTagged ? 'opacity-20' : ''}`}
             dangerouslySetInnerHTML={{ __html: shape?.svg || '' }} 
           />
           
