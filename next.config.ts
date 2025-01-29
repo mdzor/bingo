@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'export',
+  generateBuildId: async () => {
+    return Date.now().toString();
+  },
+  optimizeCss: true,
   images: {
     remotePatterns: [
       // your existing patterns if any
@@ -11,7 +15,6 @@ const nextConfig: NextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  /* config options here */
 };
 
 export default nextConfig;

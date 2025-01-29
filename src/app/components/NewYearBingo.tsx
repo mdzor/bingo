@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import confetti from 'canvas-confetti';
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import Image from 'next/image';
 import BingoCell from './BingoCell';
 import { BACKGROUND }from '../constants/background';
@@ -12,6 +12,11 @@ import './NewYearBingo.css';
 import AddGoalDialog from './AddGoalDialog';
 import { RotateCcw } from "lucide-react";
 import { bingoGoals } from '../constants/inspirations';
+import ShareDialog from './ShareDialog';
+import { Plus, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const GRID_SIZE = 5;
 const TOTAL_GOALS = GRID_SIZE * GRID_SIZE;
@@ -73,6 +78,110 @@ const CELL_SHAPES: CellShape[] = [
   { id: 'quatrefoil', svg: '...' },
 ];
 
+// Add new type for BoardsList
+type SavedBoardData = {
+  goals: Array<{
+    goal: string;
+    icon: string;
+  }>;
+  theme: string;
+  isLocked: boolean;
+  name: string;
+  createdAt: string;
+};
+
+// Add this new type
+type EditBoardNameDialogProps = {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialName?: string;
+  onSave: (name: string) => void;
+  mode: 'add' | 'edit';
+};
+
+// Add this new component
+const EditBoardNameDialog = ({ isOpen, onOpenChange, initialName = '', onSave, mode }: EditBoardNameDialogProps) => {
+  const [name, setName] = useState(initialName);
+
+  const handleSave = () => {
+    onSave(name);
+    onOpenChange(false);
+    setName('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px] bg-white">
+        <DialogHeader>
+          <DialogTitle>{mode === 'add' ? 'Add New Board' : 'Edit Board Name'}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="col-span-3"
+              autoFocus
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Add this new type
+type DeleteConfirmDialogProps = {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  boardName: string;
+  onConfirm: () => void;
+};
+
+// Add this new component
+const DeleteConfirmDialog = ({ isOpen, onOpenChange, boardName, onConfirm }: DeleteConfirmDialogProps) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px] bg-white">
+        <DialogHeader>
+          <DialogTitle>Delete Board</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <p>Are you sure you want to delete &quot;{boardName}&quot;?</p>
+          <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button 
+            variant="destructive" 
+            onClick={() => {
+              onConfirm();
+              onOpenChange(false);
+            }}
+          >
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const NewYearBingo = () => {
   const [grid, setGrid] = useState(INITIAL_GRID);
   const [editingCell, setEditingCell] = useState<number | null>(null);
@@ -88,6 +197,16 @@ const NewYearBingo = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [inspiration, setInspiration] = useState<string | null>(null);
   const [isInspiring, setIsInspiring] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
+  const [savedBoards, setSavedBoards] = useState<Record<string, SavedBoardData>>({});
+  const [currentBoardName, setCurrentBoardName] = useState<string>('');
+  const [isEditBoardNameOpen, setIsEditBoardNameOpen] = useState(false);
+  const [editingBoardName, setEditingBoardName] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [boardToDelete, setBoardToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const filledGoals = grid.filter(cell => cell.goal !== '').length;
@@ -98,6 +217,8 @@ const NewYearBingo = () => {
     localStorage.removeItem('bingoBoard');
     setGrid(Array(TOTAL_GOALS).fill({ goal: '', icon: '' }));
     setSavedBoard(null);
+    setIsLocked(false);
+    toast.success('Board reset successfully! Start fresh ✨');
   };
 
   const handleSave = () => {
@@ -110,10 +231,23 @@ const NewYearBingo = () => {
     };
 
     setGrid(newGrid);
-    localStorage.setItem('bingoBoard', JSON.stringify({
-      goals: newGrid,
-      theme: currentTheme.name
-    }));
+
+    // Save to multiple boards
+    const boardName = currentBoardName || `Board ${Object.keys(savedBoards).length + 1}`;
+    const updatedBoards = {
+      ...savedBoards,
+      [boardName]: {
+        goals: newGrid,
+        theme: currentTheme.name,
+        isLocked,
+        name: boardName,
+        createdAt: new Date().toISOString()
+      }
+    };
+
+    localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
+    setSavedBoards(updatedBoards);
+    setCurrentBoardName(boardName);
 
     // Add confetti animation when saving a new goal
     confetti({
@@ -159,7 +293,25 @@ const NewYearBingo = () => {
     }
   };
 
+  const handleLock = () => {
+    setIsLocked(true);
+    
+    // Update lock status in savedBoards
+    const updatedBoards = { ...savedBoards };
+    if (currentBoardName) {
+      updatedBoards[currentBoardName] = {
+        ...updatedBoards[currentBoardName],
+        isLocked: true
+      };
+      setSavedBoards(updatedBoards);
+      localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
+    }
+    
+    toast.success('Board locked! Your goals are now set in stone. 🔒');
+  };
+
   const handleEdit = (index: number) => {
+    if (isLocked) return;
     setEditingCell(index);
     setEditedGoal(grid[index].goal || '');
     setSelectedIcon(grid[index].icon || '');
@@ -197,6 +349,7 @@ const NewYearBingo = () => {
   };
 
   const handleShuffle = () => {
+    if (isLocked) return;
     setIsShuffling(true);
     
     setTimeout(() => {
@@ -227,6 +380,9 @@ const NewYearBingo = () => {
           setGrid(parsed.goals);
           setSavedBoard(parsed);
         }
+        if (parsed.isLocked) {
+          setIsLocked(parsed.isLocked);
+        }
         // Fix theme loading
         if (parsed.theme) {
           const savedTheme = Object.values(THEMES).find(t => t.name === parsed.theme);
@@ -239,6 +395,107 @@ const NewYearBingo = () => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const loadParam = urlParams.get('load');
+    
+    if (loadParam) {
+      try {
+        const decodedData = JSON.parse(decodeURIComponent(atob(loadParam)));
+        if (decodedData.goals) {
+          const filledGoals = decodedData.goals.filter(cell => cell.goal !== '').length;
+          if (filledGoals === TOTAL_GOALS) {
+            const shuffledGoals = [...decodedData.goals].sort(() => Math.random() - 0.5);
+            setGrid(shuffledGoals);
+            setIsLocked(true);
+          } else {
+            setGrid(decodedData.goals);
+          }
+
+          // Generate unique board name with incrementing number
+          let baseName = decodedData.name || 'Shared Board';
+          let boardName = baseName;
+          let counter = 1;
+          
+          while (savedBoards[boardName]) {
+            boardName = `${baseName} (${counter})`;
+            counter++;
+          }
+
+          const updatedBoards = {
+            ...savedBoards,
+            [boardName]: {
+              goals: decodedData.goals,
+              theme: decodedData.theme || currentTheme.name,
+              isLocked: filledGoals === TOTAL_GOALS,
+              name: boardName,
+              createdAt: new Date().toISOString()
+            }
+          };
+          
+          localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
+          setSavedBoards(updatedBoards);
+          setCurrentBoardName(boardName);
+
+          if (decodedData.theme) {
+            const savedTheme = Object.values(THEMES).find(t => t.name === decodedData.theme);
+            if (savedTheme) {
+              setCurrentTheme(savedTheme);
+            }
+          }
+
+          toast.success('Board loaded and saved! 🎯', {
+            duration: 2000,
+            position: 'top-center',
+          });
+
+          // Redirect to home page after loading
+          window.history.replaceState({}, '', '/');
+        }
+      } catch (e) {
+        console.error('Error loading shared board:', e);
+        toast.error('Invalid share link', {
+          duration: 2000,
+          position: 'top-center',
+        });
+        // Redirect to home page if there's an error
+        window.history.replaceState({}, '', '/');
+      }
+    }
+    setIsLoading(false);
+  }, [savedBoards, currentTheme.name]);
+
+  const handleShareBoard = () => {
+    const boardData = {
+      goals: grid,
+      theme: currentTheme.name,
+      name: currentBoardName // Include the board name in shared data
+    };
+    
+    const base64Data = btoa(encodeURIComponent(JSON.stringify(boardData)));
+    const generatedUrl = `${window.location.origin}/?load=${base64Data}`;
+    
+    setShareUrl(generatedUrl);
+    setIsShareDialogOpen(true);
+  };
+
+  const loadBoard = (boardName: string) => {
+    const board = savedBoards[boardName];
+    if (board) {
+      setGrid(board.goals);
+      setIsLocked(board.isLocked);
+      setCurrentBoardName(boardName);
+      
+      // Set theme
+      const savedTheme = Object.values(THEMES).find(t => t.name === board.theme);
+      if (savedTheme) {
+        setCurrentTheme(savedTheme);
+      }
+
+      toast.success(`Loaded board: ${boardName}`);
+    }
+  };
 
   const renderCell = (cell: GridCell, index: number) => {
     if (isViewMode && savedBoard) {
@@ -287,7 +544,8 @@ const NewYearBingo = () => {
         cellRef={(el: HTMLDivElement) => cellRefs.current[index] = el}
         theme={currentTheme}
         shapeId={cellShapes[index]}
-        colorClass={currentTheme.name === 'Original' ? ORIGINAL_COLORS[index] : ''}
+        colorClass={currentTheme.name === 'Full' ? ORIGINAL_COLORS[index] : ''}
+        isLocked={isLocked}
       />
     );
   };
@@ -305,198 +563,430 @@ const NewYearBingo = () => {
     }
   };
 
+  // Update this useEffect to load the first board
+  useEffect(() => {
+    const boards = localStorage.getItem('bingoBoards');
+    if (boards) {
+      const parsedBoards = JSON.parse(boards);
+      setSavedBoards(parsedBoards);
+      
+      // Load the first board if no current board is selected
+      if (!currentBoardName && Object.keys(parsedBoards).length > 0) {
+        const firstBoardName = Object.keys(parsedBoards)[0];
+        const firstBoard = parsedBoards[firstBoardName];
+        
+        setGrid(firstBoard.goals);
+        setIsLocked(firstBoard.isLocked);
+        setCurrentBoardName(firstBoardName);
+        
+        // Set theme for the first board
+        const savedTheme = Object.values(THEMES).find(t => t.name === firstBoard.theme);
+        if (savedTheme) {
+          setCurrentTheme(savedTheme);
+        }
+      }
+    }
+  }, [currentBoardName]); // Add currentBoardName as dependency
+
+  // Add these new handlers
+  const handleAddBoard = () => {
+    setEditingBoardName(null);
+    setIsEditBoardNameOpen(true);
+  };
+
+  const handleEditBoardName = (oldName: string) => {
+    setEditingBoardName(oldName);
+    setIsEditBoardNameOpen(true);
+  };
+
+  const handleSaveBoardName = (newName: string) => {
+    if (!newName.trim()) return;
+
+    const updatedBoards = { ...savedBoards };
+
+    if (editingBoardName) {
+      // Editing existing board
+      const boardData = updatedBoards[editingBoardName];
+      delete updatedBoards[editingBoardName];
+      updatedBoards[newName] = { ...boardData, name: newName };
+      if (currentBoardName === editingBoardName) {
+        setCurrentBoardName(newName);
+      }
+    } else {
+      // Adding new board
+      updatedBoards[newName] = {
+        goals: Array(TOTAL_GOALS).fill({ goal: '', icon: '' }),
+        theme: currentTheme.name,
+        isLocked: false,
+        name: newName,
+        createdAt: new Date().toISOString()
+      };
+      setCurrentBoardName(newName);
+      setGrid(Array(TOTAL_GOALS).fill({ goal: '', icon: '' }));
+    }
+
+    setSavedBoards(updatedBoards);
+    localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
+    toast.success(editingBoardName ? 'Board renamed successfully!' : 'New board created!');
+  };
+
+  // Add this new handler
+  const handleDeleteBoard = (boardName: string) => {
+    setBoardToDelete(boardName);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteBoard = () => {
+    if (!boardToDelete) return;
+
+    const updatedBoards = { ...savedBoards };
+    delete updatedBoards[boardToDelete];
+    setSavedBoards(updatedBoards);
+    localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
+
+    // If we're deleting the current board, switch to another board
+    if (currentBoardName === boardToDelete) {
+      const nextBoardName = Object.keys(updatedBoards)[0];
+      if (nextBoardName) {
+        loadBoard(nextBoardName);
+      } else {
+        // No boards left, reset to empty state
+        setGrid(INITIAL_GRID);
+        setCurrentBoardName('');
+        setIsLocked(false);
+      }
+    }
+
+    setBoardToDelete(null);
+    toast.success('Board deleted successfully');
+  };
+
+  // Update the renderBoardsList function to include the delete button
+  const renderBoardsList = () => (
+    <div className="absolute w-[300px] top-[40%] left-1/2 ml-[470px] z-10">
+      <Card className="p-4 bg-white/90 border-2 border-black">
+        <div className="flex justify-between items-center mb-2 border-b pb-2">
+          <h3 className="font-afacad text-xl">Saved Boards</h3>
+          <Button
+            onClick={handleAddBoard}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="max-h-[300px] overflow-y-auto">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="text-left py-2">Name</th>
+                <th className="text-left py-2">Created</th>
+                <th className="w-8"></th>
+                <th className="w-8"></th>
+                <th className="w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(savedBoards).map(([name, board]) => (
+                <tr 
+                  key={name}
+                  className={`
+                    ${currentBoardName === name ? 'bg-gray-200' : ''}
+                  `}
+                >
+                  <td className="py-2 cursor-pointer" onClick={() => loadBoard(name)}>{name}</td>
+                  <td className="py-2 text-sm text-gray-600 cursor-pointer" onClick={() => loadBoard(name)}>
+                    {new Date(board.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="text-center">
+                    {board.isLocked && <span title="Locked">🔒</span>}
+                  </td>
+                  <td>
+                    <Button
+                      onClick={() => handleEditBoardName(name)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      disabled={board.isLocked}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </td>
+                  <td>
+                    <Button
+                      onClick={() => handleDeleteBoard(name)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:text-red-500"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                      </svg>
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#B3D9F6] to-[#61BBFF] p-8 relative overflow-hidden">
-      {inspiration && (
-        <div 
-          className="floating-message absolute left-1/2 ml-[620px] top-[20%] z-50 text-xl font-afacad"
-          style={{ maxWidth: '80vw' }}
-        >
-          {inspiration}
-        </div>
-      )}
-
-      <div className="w-[35%] mx-auto relative">
-        {/* Theme selection (now absolute) */}
-        <div className="absolute left-1/2 ml-[410px] bottom-1/4 mb-[-395px] -translate-y-1/2 flex flex-col gap-3 z-10">
-          {Object.values(THEMES).map((theme) => (
-            <Button
-              key={theme.name}
-              onClick={() => handleThemeChange(theme)}
-              variant="secondary"
-              className={`
-                bg-white hover:bg-white/90 
-                
-                font-afacad 
-                flex items-center justify-between 
-                border-0 border-black
-                px-1
-                h-[35px]
-                w-[100px]
-                transition-all duration-100 ease-in-out
-                ${currentTheme.name === theme.name ? 'border-2' : ''}
-              `}
-            >
-              <span className="text-black">{theme.name.toLowerCase()}</span>
-              <div className="w-6 h-6 rounded-full relative overflow-hidden">
-                {theme.name === 'Original' ? (
-                  <div 
-                    className="absolute inset-0" 
-                    style={{ 
-                      background: `conic-gradient(
-                        #F5818B 0deg 72deg,
-                        #F9D025 72deg 144deg,
-                        #3EA345 144deg 216deg,
-                        #326FC9 216deg 288deg,
-                        #E04025 288deg 360deg
-                      )`
-                    }}
-                  />
-                ) : (
-                  <div 
-                    className="absolute inset-0" 
-                    style={{ 
-                      background: `linear-gradient(to right, 
-                        ${theme.cardBg.replace('bg-[', '').replace(']', '')} 50%, 
-                        ${theme.frameFill} 50%
-                      )`
-                    }}
-                  />
-                )}
-              </div>
-            </Button>
-          ))}
-        </div>
-
-        {/* Shuffle (absolute) */}
-        <button
-          onClick={handleShuffle}
-          className="absolute w-60 h-60 top-[15%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12"
-        >
-          <Image 
-            src="/shuffle.svg" 
-            alt="Shuffle" 
-            width={150}
-            height={150}
-            className="w-full h-full"
-          />
-        </button>
-
-        {/* Inspire button (now absolute) */}
-        <button
-          onClick={handleInspire}
-          disabled={isInspiring}
-          className={`absolute w-60 h-60 top-[15%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
-            isInspiring ? 'cursor-not-allowed' : ''
-          }`}
-        >
-          <Image 
-            src="/inspire.svg" 
-            alt="Inspire" 
-            width={150}
-            height={150}
-            className="w-full h-full"
-          />
-        </button>
-
-        {/* Completed Goals (absolute) */}
-        <div
-          className="absolute w-60 h-60 top-[40%] right-1/2 mr-[550px] z-10 transition-transform hover:scale-105 flex flex-col items-center justify-center"
-          style={{ 
-            backgroundImage: 'url(/counter.svg)',
-            backgroundSize: 'contain',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center'
-          }}
-        >
-          <p className="font-['Poiret_One'] text-[3em] leading-tight text-center mt-[-20px]">
-            {completedGoals}/25
-          </p>
-          <p className="text-[1.2em]">COMPLETED</p>
-        </div>
-
-        {/* Reset (absolute) */}
-        {!isViewMode && (
-          <div className="absolute w-60 h-60 top-[65%] right-1/2 mr-[550px] z-10">
-            <Button
-              onClick={resetBoard}
-              variant="secondary"
-              className="bg-[#326FC9] text-[1.1em] hover:bg-[#326FC9]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px]"
-            >
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset Board
-            </Button>
+    <>
+      <Toaster richColors position="top-center" />
+      <div className="min-h-screen bg-gradient-to-b from-[#B3D9F6] to-[#61BBFF] p-8 relative overflow-hidden">
+        {inspiration && (
+          <div 
+            className="floating-message absolute left-1/2 ml-[620px] top-[20%] z-50 text-xl font-afacad"
+            style={{ maxWidth: '80vw' }}
+          >
+            {inspiration}
           </div>
         )}
 
-        {/* Background Frame - Updated positioning */}
-        <div 
-          className="absolute left-1/2 top-0 h-full -translate-x-1/2 pointer-events-none"
-          style={{ 
-            width: 'min(850px, 910px)',
-            position: 'absolute',
-            minHeight: '100%'
-          }}
-          dangerouslySetInnerHTML={{ 
-            __html: currentTheme.isDark 
-              ? DARK_BACKGROUND 
-              : BACKGROUND.replace('#E04025', currentTheme.frameFill || '#E04025')
-          }}
+        <div className="w-[35%] mx-auto relative">
+          {/* Theme selection (now absolute) */}
+          <div className="absolute left-1/2 ml-[410px] bottom-1/4 mb-[-395px] -translate-y-1/2 flex flex-col gap-3 z-10">
+            {Object.values(THEMES).map((theme) => (
+              <Button
+                key={theme.name}
+                onClick={() => handleThemeChange(theme)}
+                variant="secondary"
+                className={`
+                  bg-white hover:bg-white/90 
+                  
+                  font-afacad 
+                  flex items-center justify-between 
+                  border-0 border-black
+                  px-1
+                  h-[35px]
+                  w-[100px]
+                  transition-all duration-100 ease-in-out
+                  ${currentTheme.name === theme.name ? 'border-2' : ''}
+                `}
+              >
+                <span className="text-black">{theme.name.toLowerCase()}</span>
+                <div className="w-6 h-6 rounded-full relative overflow-hidden">
+                  {theme.name === 'Full' ? (
+                    <div 
+                      className="absolute inset-0" 
+                      style={{ 
+                        background: `conic-gradient(
+                          #F5818B 0deg 72deg,
+                          #F9D025 72deg 144deg,
+                          #3EA345 144deg 216deg,
+                          #326FC9 216deg 288deg,
+                          #E04025 288deg 360deg
+                        )`
+                      }}
+                    />
+                  ) : (
+                    <div 
+                      className="absolute inset-0" 
+                      style={{ 
+                        background: `linear-gradient(to right, 
+                          ${theme.cardBg.replace('bg-[', '').replace(']', '')} 50%, 
+                          ${theme.frameFill} 50%
+                        )`
+                      }}
+                    />
+                  )}
+                </div>
+              </Button>
+            ))}
+          </div>
+
+          {/* Shuffle (absolute) */}
+          <button
+            onClick={handleShuffle}
+            disabled={isLocked}
+            className="absolute w-60 h-60 top-[15%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12 disabled:cursor-not-allowed"
+          >
+            <Image 
+              src="/shuffle.svg" 
+              alt="Shuffle" 
+              width={150}
+              height={150}
+              className="w-full h-full"
+            />
+          </button>
+
+          {/* Inspire button (now absolute) */}
+          <button
+            onClick={handleInspire}
+            disabled={isInspiring}
+            className={`absolute w-60 h-60 top-[15%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
+              isInspiring ? 'cursor-not-allowed' : ''
+            }`}
+          >
+            <Image 
+              src="/inspire.svg" 
+              alt="Inspire" 
+              width={150}
+              height={150}
+              className="w-full h-full"
+            />
+          </button>
+
+          {/* Completed Goals (absolute) */}
+          <div
+            className="absolute w-60 h-60 top-[40%] right-1/2 mr-[550px] z-10 transition-transform hover:scale-105 flex flex-col items-center justify-center"
+            style={{ 
+              backgroundImage: 'url(/counter.svg)',
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center'
+            }}
+          >
+            <p className="font-['Poiret_One'] text-[3em] leading-tight text-center mt-[-20px]">
+              {completedGoals}/25
+            </p>
+            <p className="text-[1.2em]">FILLED</p>
+          </div>
+
+          {/* Reset and Share buttons (absolute) */}
+          {!isViewMode && (
+            <div className="absolute w-60 h-60 top-[65%] right-1/2 mr-[550px] z-10 flex flex-col gap-2">
+              <Button
+                onClick={handleLock}
+                variant="secondary"
+                disabled={completedGoals < TOTAL_GOALS || isLocked}
+                className={`
+                  bg-[#E04025] text-[1.1em] 
+                  hover:bg-[#E04025]/90 text-black 
+                  border-2 border-black font-afacad 
+                  h-[35px] w-[150px]
+                  ${(completedGoals < TOTAL_GOALS || isLocked) ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
+              >
+                {isLocked ? '🔒 Locked' : '🔓 Lock Board'}
+              </Button>
+              <Button
+                onClick={resetBoard}
+                variant="secondary"
+                className="bg-[#326FC9] text-[1.1em] hover:bg-[#326FC9]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px]"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" /> Reset Board
+              </Button>
+              <Button
+                onClick={handleShareBoard}
+                variant="secondary"
+                className="bg-[#F9D025] text-[1.1em] hover:bg-[#F9D025]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px] transition-transform active:scale-90"
+              >
+                Share my Board
+              </Button>
+            </div>
+          )}
+
+          {/* Background Frame - Updated positioning */}
+          <div 
+            className="absolute left-1/2 top-0 h-full -translate-x-1/2 pointer-events-none"
+            style={{ 
+              width: 'min(850px, 910px)',
+              position: 'absolute',
+              minHeight: '100%'
+            }}
+            dangerouslySetInnerHTML={{ 
+              __html: currentTheme.isDark 
+                ? DARK_BACKGROUND 
+                : BACKGROUND.replace('#E04025', currentTheme.frameFill || '#E04025')
+            }}
+          />
+
+          <div className="max-w-[936px] mx-auto relative h-full flex flex-col items-center">
+            {/* Title Section */}
+            <div className="mt-12 mb-4 text-center">
+              <Image 
+                src={'/bingo.gif'}
+                alt="New Year's Resolution Bingo" 
+                className={`min-w-[700px] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
+                width={700}
+                height={200}
+                priority
+                unoptimized={true}
+              />
+            </div>
+
+            {/* Top text */}
+            <p className={`font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
+              TWENTY-FIVE INTENTIONS FOR FULL YEAR AHEAD!
+            </p>
+
+            {/* Grid */}
+            <div className=" ml-[-30px]">
+              <div 
+                className="grid min-w-[750px] grid-cols-5 gap-3 aspect-square w-full"
+                data-shuffling={isShuffling}
+              >
+                {grid.map((cell, index) => (
+                  <div key={`cell-${index}`}>
+                    {renderCell(cell, index)}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom text */}
+            <p className={`font-['Poiret_One'] font-light tracking-[60px] text-[6rem] ml-[50px] mb-[-20px] ${currentTheme.textColor}`}>
+              2025
+            </p>
+            <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] whitespace-nowrap mb-8 ${currentTheme.textColor}`}>
+              LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
+            </p>
+          </div>
+        </div>
+
+        <AddGoalDialog
+          isOpen={isPopupOpen}
+          onOpenChange={setIsPopupOpen}
+          editedGoal={editedGoal}
+          setEditedGoal={setEditedGoal}
+          selectedIcon={selectedIcon}
+          setSelectedIcon={setSelectedIcon}
+          onSave={handleSave}
+          themeColor={currentTheme.frameFill}
         />
 
-        <div className="max-w-[936px] mx-auto relative h-full flex flex-col items-center">
-          {/* Title Section */}
-          <div className="mt-12 mb-4 text-center">
-            <Image 
-              src={'/bingo.gif'}
-              alt="New Year's Resolution Bingo" 
-              className={`min-w-[700px] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
-              width={700}
-              height={200}
-              priority
-              unoptimized={true}
-            />
-          </div>
+        <ShareDialog 
+          isOpen={isShareDialogOpen}
+          onOpenChange={setIsShareDialogOpen}
+          shareUrl={shareUrl}
+        />
 
-          {/* Top text */}
-          <p className={`font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
-            TWENTY-FIVE INTENTIONS FOR FULL YEAR AHEAD!
-          </p>
+        {/* Add renderBoardsList after the Inspire button */}
+        {renderBoardsList()}
 
-          {/* Grid */}
-          <div className=" ml-[-30px]">
-            <div 
-              className="grid min-w-[750px] grid-cols-5 gap-3 aspect-square w-full"
-              data-shuffling={isShuffling}
-            >
-              {grid.map((cell, index) => (
-                <div key={`cell-${index}`}>
-                  {renderCell(cell, index)}
-                </div>
-              ))}
-            </div>
-          </div>
+        <EditBoardNameDialog
+          isOpen={isEditBoardNameOpen}
+          onOpenChange={setIsEditBoardNameOpen}
+          initialName={editingBoardName || ''}
+          onSave={handleSaveBoardName}
+          mode={editingBoardName ? 'edit' : 'add'}
+        />
 
-          {/* Bottom text */}
-          <p className={`font-['Poiret_One'] font-light tracking-[60px] text-[6rem] ml-[50px] mb-[-20px] ${currentTheme.textColor}`}>
-            2025
-          </p>
-          <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] whitespace-nowrap mb-8 ${currentTheme.textColor}`}>
-            LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
-          </p>
-        </div>
+        <DeleteConfirmDialog
+          isOpen={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          boardName={boardToDelete || ''}
+          onConfirm={confirmDeleteBoard}
+        />
       </div>
-
-      <AddGoalDialog
-        isOpen={isPopupOpen}
-        onOpenChange={setIsPopupOpen}
-        editedGoal={editedGoal}
-        setEditedGoal={setEditedGoal}
-        selectedIcon={selectedIcon}
-        setSelectedIcon={setSelectedIcon}
-        onSave={handleSave}
-        themeColor={currentTheme.frameFill}
-      />
-    </div>
+    </>
   );
 };
 

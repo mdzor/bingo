@@ -1,6 +1,6 @@
 export const THEMES = {
     ORIGINAL: {
-      name: 'Original',
+      name: 'Full',
       background: 'from-purple-400 via-pink-500 to-red-500',
       cardBg: 'bg-[#E04025]',
       cardHoverBg: 'hover:bg-[#E04025]/90',
@@ -44,7 +44,7 @@ export const THEMES = {
       isDark: true,
     },
     SUNSET: {
-      name: 'Sunset',
+      name: 'Huat',
       background: 'bg-white',
       cardBg: 'bg-[#F9D025]',
       cardHoverBg: 'hover:bg-[#F9D025]/90',

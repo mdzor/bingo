@@ -93,3 +93,12 @@
   transform: translateX(-50%);
   pointer-events: none;
 }
+
+/* Add these new styles */
+[data-locked='true'] .aspect-square {
+  cursor: not-allowed !important;
+}
+
+button:disabled {
+  cursor: not-allowed !important;
+}
