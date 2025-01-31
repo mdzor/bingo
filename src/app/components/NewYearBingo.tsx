@@ -563,13 +563,15 @@ const NewYearBingo = () => {
   const handleThemeChange = (newTheme: Theme) => {
     setCurrentTheme(newTheme);
     
-    const savedData = localStorage.getItem('bingoBoard');
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      localStorage.setItem('bingoBoard', JSON.stringify({
-        ...parsed,
+    // Update theme in savedBoards for current board
+    if (currentBoardName) {
+      const updatedBoards = { ...savedBoards };
+      updatedBoards[currentBoardName] = {
+        ...updatedBoards[currentBoardName],
         theme: newTheme.name
-      }));
+      };
+      setSavedBoards(updatedBoards);
+      localStorage.setItem('bingoBoards', JSON.stringify(updatedBoards));
     }
   };
 
@@ -695,64 +697,74 @@ const NewYearBingo = () => {
             <thead>
               <tr>
                 <th className="text-left py-2">Name</th>
-                <th className="text-left py-2">Created</th>
+                <th className="text-left py-2">Status</th>
                 <th className="w-8"></th>
                 <th className="w-8"></th>
                 <th className="w-8"></th>
               </tr>
             </thead>
             <tbody>
-              {Object.entries(savedBoards).map(([name, board]) => (
-                <tr 
-                  key={name}
-                  className={`
-                    ${currentBoardName === name ? 'bg-gray-200' : ''}
-                  `}
-                >
-                  <td className="py-2 cursor-pointer" onClick={() => loadBoard(name)}>{name}</td>
-                  <td className="py-2 text-sm text-gray-600 cursor-pointer" onClick={() => loadBoard(name)}>
-                    {new Date(board.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="text-center">
-                    {board.isLocked && <span title="Locked">🔒</span>}
-                  </td>
-                  <td>
-                    <Button
-                      onClick={() => handleEditBoardName(name)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      disabled={board.isLocked}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                  </td>
-                  <td>
-                    <Button
-                      onClick={() => handleDeleteBoard(name)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:text-red-500"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+              {Object.entries(savedBoards).map(([name, board]) => {
+                // Calculate completion status
+                const filledGoals = board.isLocked
+                  ? (board.taggedCells?.filter(Boolean).length || 0)
+                  : board.goals.filter(cell => cell.goal !== '').length;
+                
+                // Only show status if there are filled goals
+                const statusText = filledGoals > 0 ? `${filledGoals}/25` : '';
+                
+                return (
+                  <tr 
+                    key={name}
+                    className={`
+                      ${currentBoardName === name ? 'bg-gray-200' : ''}
+                    `}
+                  >
+                    <td className="py-2 cursor-pointer" onClick={() => loadBoard(name)}>{name}</td>
+                    <td className="py-2 text-sm text-gray-600 cursor-pointer" onClick={() => loadBoard(name)}>
+                      {statusText}
+                    </td>
+                    <td className="text-center">
+                      {board.isLocked && <span title="Locked">🔒</span>}
+                    </td>
+                    <td>
+                      <Button
+                        onClick={() => handleEditBoardName(name)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        disabled={board.isLocked}
                       >
-                        <path d="M3 6h18" />
-                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                      </svg>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </td>
+                    <td>
+                      <Button
+                        onClick={() => handleDeleteBoard(name)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:text-red-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        </svg>
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -895,7 +907,7 @@ const NewYearBingo = () => {
           <button
             onClick={handleShuffle}
             disabled={isLocked}
-            className={`absolute w-60 h-60 top-[15%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12 ${
+            className={`absolute w-40 h-40 top-[17%] right-1/2 mr-[550px] z-10 transition-transform hover:rotate-12 active:scale-110 w-12 h-12 ${
               isLocked ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -912,7 +924,7 @@ const NewYearBingo = () => {
           <button
             onClick={handleInspire}
             disabled={isInspiring || isLocked}
-            className={`absolute w-60 h-60 top-[15%] left-1/2 ml-[500px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
+            className={`absolute w-40 h-40 top-[18%] left-1/2 ml-[490px] z-10 transition-transform transition-all active:rotate-[-40deg] duration-150 ease-in-out w-12 h-12 ${
               isInspiring || isLocked ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -941,9 +953,20 @@ const NewYearBingo = () => {
             <p className="text-[1.2em]">{isLocked ? 'COMPLETED' : 'FILLED'}</p>
           </div>
 
+          {/* Arrow image */}
+          <div className="absolute w-[130px] top-[40%] right-1/2 mr-[700px] mt-[200px] z-10">
+            <Image 
+              src="/arrow.svg" 
+              alt="Arrow" 
+              width={150}
+              height={150}
+              className="w-full h-full"
+            />
+          </div>
+
           {/* Reset and Share buttons (absolute) */}
           {!isViewMode && (
-            <div className="absolute w-60 h-60 top-[65%] right-1/2 mr-[550px] z-10 flex flex-col gap-2">
+            <div className="absolute w-60 h-60 top-[63%] right-1/2 mr-[450px] z-10 flex flex-col gap-2">
               <Button
                 onClick={handleLock}
                 variant="secondary"
@@ -977,7 +1000,7 @@ const NewYearBingo = () => {
                 variant="secondary"
                 className="bg-[#F9D025] text-[1.1em] hover:bg-[#F9D025]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px]"
               >
-                Share my Board
+                Share
               </Button>
               <Button
                 onClick={handleDownloadBoard}
