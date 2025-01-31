@@ -94,7 +94,7 @@ const BingoCell = ({
               <div className="mb-2 relative z-10">
                 <span className="text-4xl">{cell.icon}</span>
               </div>
-              <p className="text-sm line-clamp-3 relative z-10">{cell.goal}</p>
+              <p className="text-sm relative z-10 leading-loose">{cell.goal}</p>
             </>
           ) : (
             <p className="text-gray-400 relative z-10">Click to add goal</p>

@@ -17,6 +17,7 @@ import { Plus, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import html2canvas from 'html2canvas';
 
 const GRID_SIZE = 5;
 const TOTAL_GOALS = GRID_SIZE * GRID_SIZE;
@@ -78,7 +79,7 @@ const CELL_SHAPES: CellShape[] = [
   { id: 'quatrefoil', svg: '...' },
 ];
 
-// Add new type for BoardsList
+// Update the SavedBoardData type
 type SavedBoardData = {
   goals: Array<{
     goal: string;
@@ -88,6 +89,7 @@ type SavedBoardData = {
   isLocked: boolean;
   name: string;
   createdAt: string;
+  taggedCells?: boolean[];  // Add this optional property
 };
 
 // Add this new type
@@ -249,7 +251,8 @@ const NewYearBingo = () => {
         theme: currentTheme.name,
         isLocked,
         name: boardName,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        taggedCells: taggedCells
       }
     };
 
@@ -438,7 +441,8 @@ const NewYearBingo = () => {
               theme: decodedData.theme || currentTheme.name,
               isLocked: filledGoals === TOTAL_GOALS,
               name: boardName,
-              createdAt: new Date().toISOString()
+              createdAt: new Date().toISOString(),
+              taggedCells: decodedData.taggedCells || Array(TOTAL_GOALS).fill(false)
             }
           };
           
@@ -768,6 +772,62 @@ const NewYearBingo = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [isDauberMode]);
 
+  // Add this new function
+  const handleDownloadBoard = async () => {
+    try {
+      const boardElement = document.querySelector('.board-container');
+      if (!boardElement) return;
+
+      const canvas = await html2canvas(boardElement, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        letterRendering: true,
+        allowTaint: true,
+        onclone: (clonedDoc) => {
+          // Find the 2025 text element in the cloned document
+          const yearText = clonedDoc.querySelector('.year-text');
+          if (yearText) {
+            // Add additional margin-top for the PDF version
+            yearText.style.marginTop = '-30px';
+            yearText.style.marginBottom = '5px';
+          }
+
+        // Add more vertical spacing to cell content
+        const cellContents = clonedDoc.querySelectorAll('.bingo-cell-content');
+        cellContents.forEach(cell => {
+          if (cell instanceof HTMLElement) {
+            cell.style.paddingTop = '30px';
+            cell.style.paddingBottom = '30px';
+          }
+        });
+          
+        }
+      });
+
+      // Convert canvas to blob
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `${currentBoardName || 'bingo-board'}.png`;
+        link.href = url;
+        link.click();
+        
+        // Cleanup
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+
+      toast.success('Board downloaded successfully! 📥');
+    } catch (error) {
+      console.error('Error downloading board:', error);
+      toast.error('Failed to download board');
+    }
+  };
+
   return (
     <>
       <Toaster richColors position="top-center" />
@@ -917,68 +977,78 @@ const NewYearBingo = () => {
               <Button
                 onClick={handleShareBoard}
                 variant="secondary"
-                className="bg-[#F9D025] text-[1.1em] hover:bg-[#F9D025]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px] transition-transform active:scale-90"
+                className="bg-[#F9D025] text-[1.1em] hover:bg-[#F9D025]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px]"
               >
                 Share my Board
+              </Button>
+              <Button
+                onClick={handleDownloadBoard}
+                variant="secondary"
+                className="bg-[#3EA345] text-[1.1em] hover:bg-[#3EA345]/90 text-black border-2 border-black font-afacad h-[35px] w-[150px]"
+              >
+                Export Board
               </Button>
             </div>
           )}
 
-          {/* Background Frame - Updated positioning */}
-          <div 
-            className="absolute left-1/2 top-0 h-full -translate-x-1/2 pointer-events-none"
-            style={{ 
-              width: 'min(850px, 910px)',
-              position: 'absolute',
-              minHeight: '100%'
-            }}
-            dangerouslySetInnerHTML={{ 
-              __html: currentTheme.isDark 
-                ? DARK_BACKGROUND 
-                : BACKGROUND.replace('#E04025', currentTheme.frameFill || '#E04025')
-            }}
-          />
+          {/* Add class name to the container we want to capture */}
+          <div className="board-container">
+            {/* Background Frame */}
+            <div 
+              className="absolute left-1/2 top-0 h-full -translate-x-1/2 pointer-events-none"
+              style={{ 
+                width: 'min(850px, 910px)',
+                position: 'absolute',
+                minHeight: '100%'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: currentTheme.isDark 
+                  ? DARK_BACKGROUND 
+                  : BACKGROUND.replace('#E04025', currentTheme.frameFill || '#E04025')
+              }}
+            />
 
-          <div className="max-w-[936px] mx-auto relative h-full flex flex-col items-center">
-            {/* Title Section */}
-            <div className="mt-12 mb-4 text-center">
-              <Image 
-                src={'/bingo.gif'}
-                alt="New Year's Resolution Bingo" 
-                className={`min-w-[700px] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
-                width={700}
-                height={200}
-                priority
-                unoptimized={true}
-              />
-            </div>
-
-            {/* Top text */}
-            <p className={`font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
-              TWENTY-FIVE INTENTIONS FOR FULL YEAR AHEAD!
-            </p>
-
-            {/* Grid */}
-            <div className=" ml-[-30px]">
-              <div 
-                className="grid min-w-[750px] grid-cols-5 gap-3 aspect-square w-full"
-                data-shuffling={isShuffling}
-              >
-                {grid.map((cell, index) => (
-                  <div key={`cell-${index}`}>
-                    {renderCell(cell, index)}
-                  </div>
-                ))}
+            <div className="max-w-[936px] mx-auto relative h-full flex flex-col items-center">
+              {/* Title Section */}
+              <div className="mt-12 mb-4 text-center">
+                <Image 
+                  src={'/bingo.gif'}
+                  alt="New Year's Resolution Bingo" 
+                  className={`min-w-[700px] ${currentTheme.isDark ? 'invert brightness-0' : ''}`}
+                  width={700}
+                  height={200}
+                  priority
+                  unoptimized={true}
+                />
               </div>
-            </div>
 
-            {/* Bottom text */}
-            <p className={`font-['Poiret_One'] font-light tracking-[60px] text-[6rem] ml-[50px] mb-[-20px] ${currentTheme.textColor}`}>
-              2025
-            </p>
-            <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] whitespace-nowrap mb-8 ${currentTheme.textColor}`}>
-              LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
-            </p>
+              {/* Top text */}
+              <p className={`font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
+                TWENTY-FIVE INTENTIONS FOR FULL YEAR AHEAD!
+              </p>
+
+              {/* Grid */}
+              <div className=" ml-[-30px]">
+                <div 
+                  className="grid min-w-[750px] grid-cols-5 gap-3 aspect-square w-full max-w-[750px]"
+                  data-shuffling={isShuffling}
+                >
+                  {grid.map((cell, index) => (
+                    <div key={`cell-${index}`}>
+                      {renderCell(cell, index)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bottom text */}
+              <p className={`font-['Poiret_One'] font-light tracking-[60px] text-[6rem] ml-[50px] mb-[-20px] year-text ${currentTheme.textColor}`}>
+                2025
+              </p>
+              <p className={`font-['Afacad'] font-light text-[2rem] tracking-[2px] whitespace-nowrap mb-8 ${currentTheme.textColor}`}>
+                LET&apos;S GO! GROW &amp; WIN FULL HOUSE!
+              </p>
+            </div>
           </div>
         </div>
 
