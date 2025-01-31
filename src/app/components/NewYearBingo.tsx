@@ -775,7 +775,7 @@ const NewYearBingo = () => {
   // Add this new function
   const handleDownloadBoard = async () => {
     try {
-      const boardElement = document.querySelector('.board-container');
+      const boardElement = document.querySelector('.board-container') as HTMLElement;
       if (!boardElement) return;
 
       const canvas = await html2canvas(boardElement, {
@@ -783,26 +783,24 @@ const NewYearBingo = () => {
         scale: 2,
         logging: false,
         useCORS: true,
-        letterRendering: true,
         allowTaint: true,
         onclone: (clonedDoc) => {
-          // Find the 2025 text element in the cloned document
-          const yearText = clonedDoc.querySelector('.year-text');
+          // Cast yearText to HTMLElement
+          const yearText = clonedDoc.querySelector('.year-text') as HTMLElement;
           if (yearText) {
             // Add additional margin-top for the PDF version
             yearText.style.marginTop = '-30px';
-            yearText.style.marginBottom = '5px';
+            yearText.style.marginBottom = '0px';
           }
 
-        // Add more vertical spacing to cell content
-        const cellContents = clonedDoc.querySelectorAll('.bingo-cell-content');
-        cellContents.forEach(cell => {
-          if (cell instanceof HTMLElement) {
-            cell.style.paddingTop = '30px';
-            cell.style.paddingBottom = '30px';
-          }
-        });
-          
+
+          // Cast cellContents NodeList to HTMLElement array
+          const cellContents = clonedDoc.querySelectorAll('.bingo-cell-content');
+          cellContents.forEach(cell => {
+            const cellElement = cell as HTMLElement;
+            cellElement.style.paddingTop = '30px';
+            cellElement.style.paddingBottom = '30px';
+          });
         }
       });
 
@@ -1023,7 +1021,7 @@ const NewYearBingo = () => {
               </div>
 
               {/* Top text */}
-              <p className={`font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
+              <p className={`belowlogo font-['Afacad'] whitespace-nowrap font-light text-[2rem] tracking-[2px] ml-[-20px] ${currentTheme.textColor}`}>
                 TWENTY-FIVE INTENTIONS FOR FULL YEAR AHEAD!
               </p>
 
