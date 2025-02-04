@@ -866,8 +866,8 @@ const NewYearBingo = () => {
         )}
 
         <div className="w-[35%] mx-auto relative">
-          {/* Theme selection (now absolute) */}
-          <div className="absolute left-1/2 ml-[410px] bottom-1/4 mb-[-395px] -translate-y-1/2 flex flex-col gap-3 z-10">
+          {/* Theme selection */}
+          <div className="absolute left-1/2 ml-[410px] bottom-1/4 mb-[-395px] -translate-y-1/2 flex flex-col gap-3 z-10 theme-selector-container">
             {Object.values(THEMES).map((theme) => (
               <Button
                 key={theme.name}
@@ -951,9 +951,9 @@ const NewYearBingo = () => {
             />
           </button>
 
-          {/* Completed Goals (absolute) */}
+          {/* Completed Goals */}
           <div
-            className="absolute w-60 h-60 top-[40%] right-1/2 mr-[550px] z-10 transition-transform hover:scale-105 flex flex-col items-center justify-center"
+            className="absolute w-60 h-60 top-[40%] right-1/2 mr-[550px] z-10 transition-transform hover:scale-105 flex flex-col items-center justify-center completed-block"
             style={{ 
               backgroundImage: 'url(/counter.svg)',
               backgroundSize: 'contain',
