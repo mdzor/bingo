@@ -113,3 +113,18 @@ button:disabled {
 .cell-shake {
   animation: shake 0.3s ease-in-out;
 }
+
+/* Simplified mobile styles */
+@media screen and (max-width: 768px) {
+  .board-container {
+    transform: scale(0.8);
+    transform-origin: top center;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .board-container {
+    transform: scale(0.5);
+    transform-origin: top center;
+  }
+}

@@ -838,6 +838,20 @@ const NewYearBingo = () => {
     }
   };
 
+  // Add useEffect for viewport meta tag
+  useEffect(() => {
+    // Add viewport meta tag for better mobile scaling
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    document.getElementsByTagName('head')[0].appendChild(meta);
+
+    // Cleanup
+    return () => {
+      document.getElementsByTagName('head')[0].removeChild(meta);
+    };
+  }, []);
+
   return (
     <>
       <Toaster richColors position="top-center" />
